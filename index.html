@@ -331,17 +331,20 @@
   <div id="start-screen">
     <h1>ことば つくり<br>ゲーム</h1>
     <p>
-      ランダムに10文字のひらがなが出るよ。<br>
+      ランダムにひらがなが出るよ。<br>
       その文字をつかってことばを作ろう！<br>
       長いことばをはやく作るほど高得点！
     </p>
-    <button class="btn-start" onclick="startGame()">ゲームスタート！</button>
+    <div style="display:flex;gap:16px;margin-bottom:24px;">
+      <button class="btn-start" onclick="startGame(10)">10文字モード</button>
+      <button class="btn-start" onclick="startGame(15)">15文字モード</button>
+    </div>
   </div>
 
   <!-- ゲーム画面 -->
   <div id="game-screen">
     <h1>ことば つくり ゲーム</h1>
-    <p class="subtitle">10文字をつかってことばを作ろう！長いことばをはやく！</p>
+    <p class="subtitle" id="subtitle"></p>
 
     <div class="status-bar">
       <div class="status-item">
@@ -359,7 +362,7 @@
     </div>
 
     <div class="hint-area">
-      <div class="hint-label">この10文字をつかってことばを作ってね</div>
+      <div class="hint-label" id="hint-label"></div>
       <div class="kana-grid" id="kana-grid"></div>
     </div>
 
@@ -424,7 +427,7 @@
     ];
 
     let tiles = [];
-    let tileUsed = [];
+    let tileCount = 10;
     let currentWord = [];
     let totalScore = 0;
     let correctCount = 0;
@@ -441,21 +444,24 @@
       return a;
     }
 
-    function pickTiles() {
-      // 10文字のうち濁点は最大2文字
-      const dakutenCount = Math.floor(Math.random() * 3); // 0〜2
-      const baseCount = 10 - dakutenCount;
-      const baseSelected   = shuffle(BASE_KANA).slice(0, baseCount);
-      const dakuSelected   = shuffle(DAKUTEN_KANA).slice(0, dakutenCount);
+    function pickTiles(n) {
+      const maxDaku = Math.floor(n / 5);
+      const dakutenCount = Math.floor(Math.random() * (maxDaku + 1));
+      const baseCount = n - dakutenCount;
+      const baseSelected = shuffle(BASE_KANA).slice(0, baseCount);
+      const dakuSelected = shuffle(DAKUTEN_KANA).slice(0, dakutenCount);
       return shuffle([...baseSelected, ...dakuSelected]);
     }
 
-    function startGame() {
+    function startGame(n) {
+      tileCount = n || 10;
       document.getElementById('start-screen').style.display = 'none';
       document.getElementById('result-overlay').classList.remove('show');
       document.getElementById('game-screen').style.display = 'flex';
+      document.getElementById('subtitle').textContent = tileCount + '文字をつかってことばを作ろう！長いことばをはやく！';
+      document.getElementById('hint-label').textContent = 'この' + tileCount + '文字をつかってことばを作ってね';
 
-      tiles = pickTiles();
+      tiles = pickTiles(tileCount);
       currentWord = [];
       totalScore = 0;
       correctCount = 0;
@@ -672,7 +678,6 @@
 
       // タイル選択状態はリセット（音声入力は独立判定）
       currentWord = [];
-      tileUsed = new Array(10).fill(false);
       renderTiles();
 
       // 辞書チェック
