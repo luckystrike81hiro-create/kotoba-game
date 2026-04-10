@@ -359,6 +359,10 @@
         <div class="status-label">正解数</div>
         <div class="status-value" id="correct-count">0</div>
       </div>
+      <div class="status-item">
+        <div class="status-label">最大</div>
+        <div class="status-value" id="max-words">-</div>
+      </div>
     </div>
 
     <div class="hint-area">
@@ -453,6 +457,19 @@
       return shuffle([...baseSelected, ...dakuSelected]);
     }
 
+    function countPossibleWords() {
+      const tileSet = new Set(tiles);
+      let count = 0;
+      for (const word of DICTIONARY) {
+        let ok = true;
+        for (const ch of word) {
+          if (!tileSet.has(ch)) { ok = false; break; }
+        }
+        if (ok) count++;
+      }
+      return count;
+    }
+
     function startGame(n) {
       tileCount = n || 10;
       document.getElementById('start-screen').style.display = 'none';
@@ -469,6 +486,7 @@
 
       document.getElementById('score').textContent = '0';
       document.getElementById('correct-count').textContent = '0';
+      document.getElementById('max-words').textContent = countPossibleWords() + '語';
       document.getElementById('history-list').innerHTML = '';
       document.getElementById('message').textContent = '';
       document.getElementById('message').className = 'message';
