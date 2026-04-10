@@ -456,7 +456,6 @@
       document.getElementById('game-screen').style.display = 'flex';
 
       tiles = pickTiles();
-      tileUsed = new Array(10).fill(false);
       currentWord = [];
       totalScore = 0;
       correctCount = 0;
@@ -503,7 +502,7 @@
       grid.innerHTML = '';
       tiles.forEach((kana, i) => {
         const tile = document.createElement('div');
-        tile.className = 'kana-tile' + (tileUsed[i] ? ' used' : '');
+        tile.className = 'kana-tile';
         tile.textContent = kana;
         tile.onclick = () => selectTile(i);
         grid.appendChild(tile);
@@ -511,8 +510,6 @@
     }
 
     function selectTile(i) {
-      if (tileUsed[i]) return;
-      tileUsed[i] = true;
       currentWord.push(i);
       renderTiles();
       renderWordDisplay();
@@ -521,14 +518,12 @@
 
     function undoLast() {
       if (currentWord.length === 0) return;
-      const last = currentWord.pop();
-      tileUsed[last] = false;
+      currentWord.pop();
       renderTiles();
       renderWordDisplay();
     }
 
     function clearWord() {
-      currentWord.forEach(i => { tileUsed[i] = false; });
       currentWord = [];
       renderTiles();
       renderWordDisplay();
