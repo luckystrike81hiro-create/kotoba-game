@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ことば つくり ゲーム</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+      background: linear-gradient(135deg, #e0f7fa, #b2ebf2);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* ===== スタート画面 ===== */
+    #start-screen {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #00695c, #26a69a);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      color: white;
+      text-align: center;
+      padding: 30px;
+    }
+
+    #start-screen h1 {
+      font-size: 2.4rem;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    #start-screen p {
+      font-size: 1rem;
+      opacity: 0.9;
+      margin-bottom: 40px;
+      line-height: 1.8;
+    }
+
+    .btn-start {
+      background: white;
+      color: #00695c;
+      font-size: 1.4rem;
+      font-weight: bold;
+      padding: 18px 50px;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .btn-start:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+
+    /* ===== メイン ===== */
+    #game-screen {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      color: #00695c;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+
+    .subtitle {
+      color: #555;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    /* タイマー・スコア */
+    .status-bar {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+      background: white;
+      border-radius: 12px;
+      padding: 12px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .status-item { text-align: center; }
+    .status-label { font-size: 0.72rem; color: #888; }
+    .status-value { font-size: 1.4rem; font-weight: bold; color: #00695c; }
+
+    /* 提示文字 */
+    .hint-area {
+      background: white;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 600px;
+    }
+
+    .hint-label {
+      font-size: 0.82rem;
+      color: #888;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .kana-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .kana-tile {
+      width: 54px;
+      height: 54px;
+      background: #e0f2f1;
+      border: 2px solid #80cbc4;
+      border-radius: 10px;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.12s;
+      user-select: none;
+    }
+
+    .kana-tile:hover:not(.used) { background: #b2dfdb; transform: scale(1.06); }
+    .kana-tile.used { opacity: 0.25; cursor: not-allowed; transform: none; }
+
+    /* 入力エリア */
+    .input-area {
+      background: white;
+      border-radius: 16px;
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 600px;
+      text-align: center;
+    }
+
+    .word-display {
+      font-size: 2rem;
+      letter-spacing: 0.2em;
+      color: #00695c;
+      min-height: 56px;
+      margin-bottom: 10px;
+      padding: 8px;
+      background: #f0fffe;
+      border-radius: 10px;
+      border: 2px dashed #80cbc4;
+      line-height: 1.3;
+    }
+
+    .word-display.empty { color: #bbb; font-size: 0.95rem; line-height: 52px; }
+
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 11px 20px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.12s;
+      font-family: inherit;
+    }
+
+    button:hover { filter: brightness(0.92); }
+    button:active { transform: scale(0.97); }
+
+    .btn-submit  { background: #26a69a; color: white; font-weight: bold; font-size: 1.05rem; }
+    .btn-clear   { background: #ef9a9a; color: #333; }
+    .btn-undo    { background: #fff9c4; color: #333; }
+    .btn-end     { background: #ff7043; color: white; font-weight: bold; }
+
+    /* メッセージ */
+    .message {
+      font-size: 1rem;
+      font-weight: bold;
+      min-height: 28px;
+      margin-bottom: 8px;
+      padding: 4px 12px;
+      border-radius: 8px;
+      display: inline-block;
+    }
+
+    .message.ok { color: #2e7d32; background: #e8f5e9; }
+    .message.ng { color: #b71c1c; background: #ffebee; }
+
+    /* 履歴 */
+    .history-area {
+      background: white;
+      border-radius: 16px;
+      padding: 14px 18px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 16px;
+    }
+
+    .history-label { font-size: 0.82rem; color: #888; margin-bottom: 8px; }
+
+    .history-list {
+      list-style: none;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .history-item {
+      background: #e0f2f1;
+      border-radius: 8px;
+      padding: 3px 10px;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .history-item .word  { color: #00695c; font-weight: bold; }
+    .history-item .score { color: #888; font-size: 0.75rem; }
+
+    /* ===== リザルト ===== */
+    #result-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+    }
+
+    #result-overlay.show { display: flex; }
+
+    .result-box {
+      background: white;
+      border-radius: 20px;
+      padding: 36px 40px;
+      text-align: center;
+      max-width: 380px;
+      width: 90%;
+    }
+
+    .result-box h2     { font-size: 1.8rem; color: #00695c; margin-bottom: 12px; }
+    .result-box .final-score { font-size: 3rem; font-weight: bold; color: #ff7043; }
+    .result-box p      { color: #555; margin: 6px 0; font-size: 0.95rem; }
+    .result-box .btn-row { margin-top: 20px; justify-content: center; }
+
+    .btn-again  { background: #26a69a; color: white; font-weight: bold; font-size: 1rem; padding: 12px 28px; }
+    .btn-titile { background: #e0e0e0; color: #333; padding: 12px 20px; }
+
+    /* ===== 音声入力 ===== */
+    .voice-area {
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .btn-mic {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #26a69a;
+      color: white;
+      font-size: 1.6rem;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+      transition: all 0.15s;
+      padding: 0;
+    }
+
+    .btn-mic:hover { filter: brightness(0.9); }
+
+    .btn-mic.listening {
+      background: #e53935;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(229,57,53,0.5); }
+      70%  { box-shadow: 0 0 0 12px rgba(229,57,53,0); }
+      100% { box-shadow: 0 0 0 0 rgba(229,57,53,0); }
+    }
+
+    .voice-hint {
+      font-size: 0.82rem;
+      color: #888;
+    }
+
+    #no-speech-msg {
+      font-size: 0.8rem;
+      color: #e53935;
+      min-height: 18px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- スタート画面 -->
+  <div id="start-screen">
+    <h1>ことば つくり<br>ゲーム</h1>
+    <p>
+      ランダムに10文字のひらがなが出るよ。<br>
+      その文字をつかってことばを作ろう！<br>
+      長いことばをはやく作るほど高得点！
+    </p>
+    <button class="btn-start" onclick="startGame()">ゲームスタート！</button>
+  </div>
+
+  <!-- ゲーム画面 -->
+  <div id="game-screen">
+    <h1>ことば つくり ゲーム</h1>
+    <p class="subtitle">10文字をつかってことばを作ろう！長いことばをはやく！</p>
+
+    <div class="status-bar">
+      <div class="status-item">
+        <div class="status-label">けいか時間</div>
+        <div class="status-value" id="timer">0秒</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">合計得点</div>
+        <div class="status-value" id="score">0</div>
+      </div>
+      <div class="status-item">
+        <div class="status-label">正解数</div>
+        <div class="status-value" id="correct-count">0</div>
+      </div>
+    </div>
+
+    <div class="hint-area">
+      <div class="hint-label">この10文字をつかってことばを作ってね</div>
+      <div class="kana-grid" id="kana-grid"></div>
+    </div>
+
+    <div class="input-area">
+      <div class="word-display empty" id="word-display">ひらがなをタップしてことばを作ろう</div>
+      <div><span class="message" id="message"></span></div>
+      <div class="voice-area">
+        <button class="btn-mic" id="btn-mic" onclick="toggleVoice()" title="音声入力">🎤</button>
+        <span class="voice-hint" id="voice-hint">マイクボタンで話して入力</span>
+      </div>
+      <div id="no-speech-msg"></div>
+      <div class="btn-row">
+        <button class="btn-undo"   onclick="undoLast()">1文字もどす</button>
+        <button class="btn-clear"  onclick="clearWord()">クリア</button>
+        <button class="btn-submit" onclick="submitWord()">けってい！</button>
+        <button class="btn-end"    onclick="endGame()">ゲーム終了</button>
+      </div>
+    </div>
+
+    <div class="history-area">
+      <div class="history-label">正解したことば</div>
+      <ul class="history-list" id="history-list"></ul>
+    </div>
+  </div>
+
+  <!-- リザルト -->
+  <div id="result-overlay">
+    <div class="result-box">
+      <h2>ゲーム終了！</h2>
+      <div class="final-score" id="final-score">0</div>
+      <p>てん</p>
+      <p id="result-detail"></p>
+      <div class="btn-row">
+        <button class="btn-titile" onclick="goTitle()">タイトルへ</button>
+        <button class="btn-again"  onclick="startGame()">もう一度！</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="dictionary.js"></script>
+  <script>
+    // 50音プール（濁点・半濁点の出現率を低く）
+    const BASE_KANA = [
+      'あ','い','う','え','お',
+      'か','き','く','け','こ',
+      'さ','し','す','せ','そ',
+      'た','ち','つ','て','と',
+      'な','に','ぬ','ね','の',
+      'は','ひ','ふ','へ','ほ',
+      'ま','み','む','め','も',
+      'や','ゆ','よ',
+      'ら','り','る','れ','ろ',
+      'わ','を','ん',
+    ];
+
+    const DAKUTEN_KANA = [
+      'が','ぎ','ぐ','げ','ご',
+      'ざ','じ','ず','ぜ','ぞ',
+      'だ','で','ど',
+      'ば','び','ぶ','べ','ぼ',
+      'ぱ','ぴ','ぷ','ぺ','ぽ',
+    ];
+
+    let tiles = [];
+    let tileUsed = [];
+    let currentWord = [];
+    let totalScore = 0;
+    let correctCount = 0;
+    let startTime = null;
+    let timerInterval = null;
+    let answeredWords = new Set();
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function pickTiles() {
+      // 10文字のうち濁点は最大2文字
+      const dakutenCount = Math.floor(Math.random() * 3); // 0〜2
+      const baseCount = 10 - dakutenCount;
+      const baseSelected   = shuffle(BASE_KANA).slice(0, baseCount);
+      const dakuSelected   = shuffle(DAKUTEN_KANA).slice(0, dakutenCount);
+      return shuffle([...baseSelected, ...dakuSelected]);
+    }
+
+    function startGame() {
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('result-overlay').classList.remove('show');
+      document.getElementById('game-screen').style.display = 'flex';
+
+      tiles = pickTiles();
+      tileUsed = new Array(10).fill(false);
+      currentWord = [];
+      totalScore = 0;
+      correctCount = 0;
+      answeredWords = new Set();
+
+      document.getElementById('score').textContent = '0';
+      document.getElementById('correct-count').textContent = '0';
+      document.getElementById('history-list').innerHTML = '';
+      document.getElementById('message').textContent = '';
+      document.getElementById('message').className = 'message';
+
+      startTime = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+      updateTimer();
+
+      renderTiles();
+      renderWordDisplay();
+    }
+
+    function endGame() {
+      clearInterval(timerInterval);
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+
+      document.getElementById('final-score').textContent = totalScore;
+      document.getElementById('result-detail').textContent =
+        `正解 ${correctCount}語  /  経過 ${elapsed}秒`;
+      document.getElementById('result-overlay').classList.add('show');
+    }
+
+    function goTitle() {
+      document.getElementById('result-overlay').classList.remove('show');
+      document.getElementById('game-screen').style.display = 'none';
+      document.getElementById('start-screen').style.display = 'flex';
+    }
+
+    function updateTimer() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      document.getElementById('timer').textContent = elapsed + '秒';
+    }
+
+    function renderTiles() {
+      const grid = document.getElementById('kana-grid');
+      grid.innerHTML = '';
+      tiles.forEach((kana, i) => {
+        const tile = document.createElement('div');
+        tile.className = 'kana-tile' + (tileUsed[i] ? ' used' : '');
+        tile.textContent = kana;
+        tile.onclick = () => selectTile(i);
+        grid.appendChild(tile);
+      });
+    }
+
+    function selectTile(i) {
+      if (tileUsed[i]) return;
+      tileUsed[i] = true;
+      currentWord.push(i);
+      renderTiles();
+      renderWordDisplay();
+      setMessage('', '');
+    }
+
+    function undoLast() {
+      if (currentWord.length === 0) return;
+      const last = currentWord.pop();
+      tileUsed[last] = false;
+      renderTiles();
+      renderWordDisplay();
+    }
+
+    function clearWord() {
+      currentWord.forEach(i => { tileUsed[i] = false; });
+      currentWord = [];
+      renderTiles();
+      renderWordDisplay();
+    }
+
+    function renderWordDisplay() {
+      const display = document.getElementById('word-display');
+      if (currentWord.length === 0) {
+        display.textContent = 'ひらがなをタップしてことばを作ろう';
+        display.classList.add('empty');
+      } else {
+        display.textContent = currentWord.map(i => tiles[i]).join('');
+        display.classList.remove('empty');
+      }
+    }
+
+    function submitWord() {
+      if (currentWord.length < 2) {
+        setMessage('2文字以上で作ってね', 'ng');
+        return;
+      }
+
+      const word = currentWord.map(i => tiles[i]).join('');
+
+      if (answeredWords.has(word)) {
+        setMessage('もう正解したことばだよ', 'ng');
+        clearWord();
+        return;
+      }
+
+      if (!checkWord(word)) {
+        setMessage('「' + word + '」はみつからなかったよ…', 'ng');
+        clearWord();
+        return;
+      }
+
+      // 正解
+      const elapsed = Math.max(Math.floor((Date.now() - startTime) / 1000), 1);
+      const wordScore = Math.round(currentWord.length * 100 / elapsed);
+
+      totalScore += wordScore;
+      correctCount++;
+      answeredWords.add(word);
+
+      document.getElementById('score').textContent = totalScore;
+      document.getElementById('correct-count').textContent = correctCount;
+      setMessage('「' + word + '」 正解！ ＋' + wordScore + 'てん', 'ok');
+
+      const li = document.createElement('li');
+      li.className = 'history-item';
+      li.innerHTML = `<span class="word">${word}</span><span class="score">+${wordScore}</span>`;
+      document.getElementById('history-list').prepend(li);
+
+      currentWord = [];
+      tileUsed = new Array(10).fill(false);
+      renderTiles();
+      renderWordDisplay();
+    }
+
+    function setMessage(text, type) {
+      const el = document.getElementById('message');
+      el.textContent = text;
+      el.className = 'message' + (type ? ' ' + type : '');
+    }
+
+    // ===== 音声入力 =====
+    let recognition = null;
+    let isListening = false;
+
+    function initSpeech() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SpeechRecognition) {
+        document.getElementById('btn-mic').disabled = true;
+        document.getElementById('voice-hint').textContent = 'このブラウザは音声入力非対応です';
+        return false;
+      }
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (e) => {
+        const transcript = e.results[0][0].transcript;
+        handleVoiceInput(transcript);
+      };
+
+      recognition.onerror = (e) => {
+        setListening(false);
+        if (e.error === 'no-speech') {
+          document.getElementById('no-speech-msg').textContent = '聞き取れなかったよ。もう一度どうぞ';
+        } else if (e.error === 'not-allowed') {
+          document.getElementById('no-speech-msg').textContent = 'マイクの使用を許可してください';
+        }
+      };
+
+      recognition.onend = () => {
+        setListening(false);
+      };
+
+      return true;
+    }
+
+    function toggleVoice() {
+      if (!recognition && !initSpeech()) return;
+      if (isListening) {
+        recognition.stop();
+        setListening(false);
+      } else {
+        document.getElementById('no-speech-msg').textContent = '';
+        recognition.start();
+        setListening(true);
+      }
+    }
+
+    function setListening(val) {
+      isListening = val;
+      const btn = document.getElementById('btn-mic');
+      const hint = document.getElementById('voice-hint');
+      if (val) {
+        btn.classList.add('listening');
+        btn.textContent = '⏹';
+        hint.textContent = '聞いてるよ… 話してね';
+      } else {
+        btn.classList.remove('listening');
+        btn.textContent = '🎤';
+        hint.textContent = 'マイクボタンで話して入力';
+      }
+    }
+
+    function handleVoiceInput(text) {
+      // ひらがなに正規化（カタカナ→ひらがな、漢字混じりの場合はそのまま辞書チェック）
+      const normalized = text.replace(/[\u30A1-\u30F6]/g, ch =>
+        String.fromCharCode(ch.charCodeAt(0) - 0x60)
+      ).trim();
+
+      if (normalized.length < 2) {
+        setMessage('もう少し長く話してね', 'ng');
+        return;
+      }
+
+      // word-displayに表示してそのまま判定
+      const display = document.getElementById('word-display');
+      display.textContent = normalized;
+      display.classList.remove('empty');
+
+      // タイル選択状態はリセット（音声入力は独立判定）
+      currentWord = [];
+      tileUsed = new Array(10).fill(false);
+      renderTiles();
+
+      // 辞書チェック
+      if (answeredWords.has(normalized)) {
+        setMessage('もう正解したことばだよ', 'ng');
+        renderWordDisplay();
+        return;
+      }
+
+      if (!checkWord(normalized)) {
+        setMessage('「' + normalized + '」はみつからなかったよ…', 'ng');
+        renderWordDisplay();
+        return;
+      }
+
+      // 正解
+      const elapsed = Math.max(Math.floor((Date.now() - startTime) / 1000), 1);
+      const wordScore = Math.round(normalized.length * 100 / elapsed);
+
+      totalScore += wordScore;
+      correctCount++;
+      answeredWords.add(normalized);
+
+      document.getElementById('score').textContent = totalScore;
+      document.getElementById('correct-count').textContent = correctCount;
+      setMessage('「' + normalized + '」 正解！ ＋' + wordScore + 'てん', 'ok');
+
+      const li = document.createElement('li');
+      li.className = 'history-item';
+      li.innerHTML = `<span class="word">${normalized}</span><span class="score">+${wordScore} 🎤</span>`;
+      document.getElementById('history-list').prepend(li);
+
+      renderWordDisplay();
+    }
+  </script>
+</body>
+</html>
