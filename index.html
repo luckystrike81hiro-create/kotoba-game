@@ -578,7 +578,8 @@
       document.getElementById('history-list').prepend(li);
 
       currentWord = [];
-      tileUsed = new Array(10).fill(false);
+      startTime = Date.now();
+      updateTimer();
       renderTiles();
       renderWordDisplay();
     }
