@@ -323,6 +323,32 @@
       min-height: 18px;
       text-align: center;
     }
+
+    /* ===== アナグラムモード ===== */
+    .round-info {
+      display: none;
+      font-size: 1rem;
+      color: #00695c;
+      font-weight: bold;
+      margin-bottom: 8px;
+      background: white;
+      border-radius: 10px;
+      padding: 6px 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+
+    .hint-reveal {
+      font-size: 0.9rem;
+      color: #e65100;
+      font-weight: bold;
+      min-height: 22px;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    .btn-hint { background: #fff3e0; color: #e65100; }
+    .btn-hint:disabled { opacity: 0.4; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -339,11 +365,13 @@
       <button class="btn-start" onclick="startGame(10)">10文字モード</button>
       <button class="btn-start" onclick="startGame(15)">15文字モード</button>
     </div>
+    <button class="btn-start" style="background:#fff3e0;color:#00695c;font-size:1.2rem;padding:16px 40px;" onclick="startAnagramGame()">🔀 アナグラム</button>
   </div>
 
   <!-- ゲーム画面 -->
   <div id="game-screen">
     <h1>ことば つくり ゲーム</h1>
+    <div id="round-info" class="round-info"></div>
     <p class="subtitle" id="subtitle"></p>
 
     <div class="status-bar">
@@ -364,6 +392,7 @@
     <div class="hint-area">
       <div class="hint-label" id="hint-label"></div>
       <div class="kana-grid" id="kana-grid"></div>
+      <div id="hint-reveal" class="hint-reveal"></div>
     </div>
 
     <div class="input-area">
@@ -377,6 +406,7 @@
       <div class="btn-row">
         <button class="btn-undo"   onclick="undoLast()">1文字もどす</button>
         <button class="btn-clear"  onclick="clearWord()">クリア</button>
+        <button class="btn-hint"   id="btn-hint" onclick="useHint()" style="display:none">💡 ヒント</button>
         <button class="btn-submit" onclick="submitWord()">けってい！</button>
         <button class="btn-end"    onclick="endGame()">ゲーム終了</button>
       </div>
@@ -397,7 +427,7 @@
       <p id="result-detail"></p>
       <div class="btn-row">
         <button class="btn-titile" onclick="goTitle()">タイトルへ</button>
-        <button class="btn-again"  onclick="startGame()">もう一度！</button>
+        <button class="btn-again"  onclick="restartGame()">もう一度！</button>
       </div>
     </div>
   </div>
@@ -432,8 +462,15 @@
     let totalScore = 0;
     let correctCount = 0;
     let startTime = null;
+    let gameStartTime = null;
     let timerInterval = null;
     let answeredWords = new Set();
+    let gameMode = 'free';
+    let lastGameMode = 'free';
+    let anagramWords = [];
+    let anagramIndex = 0;
+    let anagramTarget = '';
+    let anagramHintUsed = false;
 
     function shuffle(arr) {
       const a = [...arr];
@@ -467,10 +504,15 @@
     }
 
     function startGame(n) {
+      gameMode = 'free';
+      lastGameMode = 'free';
       tileCount = n || 10;
       document.getElementById('start-screen').style.display = 'none';
       document.getElementById('result-overlay').classList.remove('show');
       document.getElementById('game-screen').style.display = 'flex';
+      document.getElementById('round-info').style.display = 'none';
+      document.getElementById('btn-hint').style.display = 'none';
+      document.getElementById('hint-reveal').textContent = '';
       document.getElementById('subtitle').textContent = tileCount + '文字をつかってことばを作ろう！長いことばをはやく！';
       document.getElementById('hint-label').textContent = 'この' + tileCount + '文字をつかってことばを作ってね';
 
@@ -487,6 +529,7 @@
       document.getElementById('message').className = 'message';
 
       startTime = Date.now();
+      gameStartTime = Date.now();
       clearInterval(timerInterval);
       timerInterval = setInterval(updateTimer, 1000);
       updateTimer();
@@ -497,11 +540,13 @@
 
     function endGame() {
       clearInterval(timerInterval);
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const elapsed = Math.floor((Date.now() - gameStartTime) / 1000);
 
       document.getElementById('final-score').textContent = totalScore;
       document.getElementById('result-detail').textContent =
-        `正解 ${correctCount}語  /  経過 ${elapsed}秒`;
+        gameMode === 'anagram'
+          ? `${correctCount}問クリア  /  合計 ${elapsed}秒`
+          : `正解 ${correctCount}語  /  経過 ${elapsed}秒`;
       document.getElementById('result-overlay').classList.add('show');
     }
 
@@ -519,9 +564,10 @@
     function renderTiles() {
       const grid = document.getElementById('kana-grid');
       grid.innerHTML = '';
+      const usedSet = gameMode === 'anagram' ? new Set(currentWord) : new Set();
       tiles.forEach((kana, i) => {
         const tile = document.createElement('div');
-        tile.className = 'kana-tile';
+        tile.className = 'kana-tile' + (usedSet.has(i) ? ' used' : '');
         tile.textContent = kana;
         tile.onclick = () => selectTile(i);
         grid.appendChild(tile);
@@ -529,10 +575,14 @@
     }
 
     function selectTile(i) {
+      if (gameMode === 'anagram' && currentWord.includes(i)) return;
       currentWord.push(i);
       renderTiles();
       renderWordDisplay();
       setMessage('', '');
+      if (gameMode === 'anagram' && currentWord.length === tiles.length) {
+        submitWord();
+      }
     }
 
     function undoLast() {
@@ -560,6 +610,37 @@
     }
 
     function submitWord() {
+      if (gameMode === 'anagram') {
+        if (currentWord.length < tiles.length) {
+          setMessage('全部の文字をつかってね', 'ng');
+          return;
+        }
+        const word = currentWord.map(i => tiles[i]).join('');
+        if (word !== anagramTarget) {
+          setMessage('ちがうよ！もう一度！', 'ng');
+          currentWord = [];
+          renderTiles();
+          renderWordDisplay();
+          return;
+        }
+        const elapsed = Math.max(Math.floor((Date.now() - startTime) / 1000), 1);
+        const wordScore = Math.max(Math.round(anagramTarget.length * 1000 / elapsed) - (anagramHintUsed ? 50 : 0), 0);
+        totalScore += wordScore;
+        correctCount++;
+        document.getElementById('score').textContent = totalScore;
+        document.getElementById('correct-count').textContent = correctCount;
+        setMessage(`「${word}」 正解！ ＋${wordScore}てん`, 'ok');
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        li.innerHTML = `<span class="word">${word}</span><span class="score">+${wordScore}</span>`;
+        document.getElementById('history-list').prepend(li);
+        setTimeout(() => {
+          if (anagramIndex + 1 >= anagramWords.length) endGame();
+          else startAnagramRound(anagramIndex + 1);
+        }, 1500);
+        return;
+      }
+
       if (currentWord.length < 2) {
         setMessage('2文字以上で作ってね', 'ng');
         return;
@@ -607,6 +688,69 @@
       const el = document.getElementById('message');
       el.textContent = text;
       el.className = 'message' + (type ? ' ' + type : '');
+    }
+
+    // ===== アナグラムモード =====
+    function startAnagramGame() {
+      gameMode = 'anagram';
+      lastGameMode = 'anagram';
+      document.getElementById('start-screen').style.display = 'none';
+      document.getElementById('result-overlay').classList.remove('show');
+      document.getElementById('game-screen').style.display = 'flex';
+      document.getElementById('round-info').style.display = 'block';
+      document.getElementById('btn-hint').style.display = '';
+      document.getElementById('subtitle').textContent = '文字を全部ならべかえてことばを作ろう！';
+      document.getElementById('hint-label').textContent = 'この文字をならべかえてね';
+      document.getElementById('history-list').innerHTML = '';
+      totalScore = 0;
+      correctCount = 0;
+      document.getElementById('score').textContent = '0';
+      document.getElementById('correct-count').textContent = '0';
+
+      const pool = [...DICTIONARY].filter(w => w.length === 5 || w.length === 6);
+      anagramWords = shuffle(pool).slice(0, 5);
+      anagramIndex = 0;
+
+      gameStartTime = Date.now();
+      clearInterval(timerInterval);
+      timerInterval = setInterval(updateTimer, 1000);
+
+      startAnagramRound(0);
+    }
+
+    function startAnagramRound(index) {
+      anagramIndex = index;
+      anagramTarget = anagramWords[index];
+      anagramHintUsed = false;
+      currentWord = [];
+
+      let shuffled;
+      do { shuffled = shuffle([...anagramTarget]); }
+      while (shuffled.join('') === anagramTarget && anagramTarget.length > 1);
+      tiles = shuffled;
+
+      document.getElementById('round-info').textContent = `問 ${index + 1} / 5`;
+      document.getElementById('hint-reveal').textContent = '';
+      document.getElementById('btn-hint').disabled = false;
+      document.getElementById('message').textContent = '';
+      document.getElementById('message').className = 'message';
+
+      startTime = Date.now();
+      updateTimer();
+      renderTiles();
+      renderWordDisplay();
+    }
+
+    function useHint() {
+      if (anagramHintUsed) return;
+      anagramHintUsed = true;
+      document.getElementById('btn-hint').disabled = true;
+      document.getElementById('hint-reveal').textContent = `最初の文字：「${anagramTarget[0]}」（-50てん）`;
+    }
+
+    function restartGame() {
+      if (lastGameMode === 'anagram') startAnagramGame();
+      else startGame(tileCount);
     }
 
     // ===== 音声入力 =====
@@ -675,7 +819,7 @@
 
     function handleVoiceInput(text) {
       // ひらがなに正規化（カタカナ→ひらがな、漢字混じりの場合はそのまま辞書チェック）
-      const normalized = text.replace(/[\u30A1-\u30F6]/g, ch =>
+      const normalized = text.replace(/[ァ-ヶ]/g, ch =>
         String.fromCharCode(ch.charCodeAt(0) - 0x60)
       ).trim();
 
@@ -692,6 +836,30 @@
       // タイル選択状態はリセット（音声入力は独立判定）
       currentWord = [];
       renderTiles();
+
+      if (gameMode === 'anagram') {
+        if (normalized !== anagramTarget) {
+          setMessage('ちがうよ！もう一度！', 'ng');
+          renderWordDisplay();
+          return;
+        }
+        const elapsed = Math.max(Math.floor((Date.now() - startTime) / 1000), 1);
+        const wordScore = Math.max(Math.round(anagramTarget.length * 1000 / elapsed) - (anagramHintUsed ? 50 : 0), 0);
+        totalScore += wordScore;
+        correctCount++;
+        document.getElementById('score').textContent = totalScore;
+        document.getElementById('correct-count').textContent = correctCount;
+        setMessage(`「${normalized}」 正解！ ＋${wordScore}てん 🎤`, 'ok');
+        const li = document.createElement('li');
+        li.className = 'history-item';
+        li.innerHTML = `<span class="word">${normalized}</span><span class="score">+${wordScore} 🎤</span>`;
+        document.getElementById('history-list').prepend(li);
+        setTimeout(() => {
+          if (anagramIndex + 1 >= anagramWords.length) endGame();
+          else startAnagramRound(anagramIndex + 1);
+        }, 1500);
+        return;
+      }
 
       // 辞書チェック
       if (answeredWords.has(normalized)) {
